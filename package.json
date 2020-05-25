@@ -1,0 +1,126 @@
+{
+	"name": "vscode-glua",
+	"displayName": "glua vscode extension",
+	"version": "0.41.0",
+	"publisher": "glua",
+	"description": "VSCode plugin for glua.",
+	"author": {
+		"name": "",
+		"email": ""
+	},
+	"license": "MIT",
+	"keywords": [
+		"glua"
+	],
+	"engines": {
+		"vscode": "^1.44.0"
+	},
+	"icon": "images/mock-debug-icon.png",
+	"categories": [
+		"Debuggers"
+	],
+	"private": true,
+	"repository": {
+		"type": "git",
+		"url": ""
+	},
+	"bugs": {
+		"url": ""
+	},
+	"scripts": {
+		"prepublish": "tsc -p ./src",
+		"compile": "tsc -p ./src",
+		"tslint": "tslint ./src/**/*.ts",
+		"watch": "tsc -w -p ./src",
+		"test": "mocha -u tdd ./out/tests/",
+		"package": "vsce package",
+		"publish": "vsce publish"
+	},
+	"dependencies": {
+		"await-notify": "1.0.1",
+		"request": "^2.88.2",
+		"request-promise": "^4.2.5",
+		"vscode-debugadapter": "1.40.0"
+	},
+	"devDependencies": {
+		"@types/node": "10.12.12",
+		"@types/mocha": "5.2.7",
+		"@types/vscode": "^1.44.0",
+		"typescript": "3.5.3",
+		"mocha": "6.2.0",
+		"vscode-debugadapter-testsupport": "1.40.3",
+		"tslint": "5.18.0",
+		"vsce": "1.74.0"
+	},
+	"main": "./out/extension",
+	"activationEvents": [
+		"onDebug",
+		"onDebugDynamicConfigurations:mock",
+		"onCommand:extension.glua-debug.getProgramName",
+		"onCommand:gluadebug.setEndpoint"
+	],
+	"contributes": {
+		"breakpoints": [
+			{
+				"language": "glua"
+			}
+		],
+		"debuggers": [
+			{
+				"type": "gluadebug",
+				"label": "glua Debug",
+				"program": "./out/debugAdapter.js",
+				"runtime": "node",
+				"configurationAttributes": {
+					"launch": {
+						"required": [
+							"program"
+						],
+						"properties": {
+							"program": {
+								"type": "string",
+								"description": "Absolute path to a source code file.",
+								"default": "${workspaceFolder}/${command:AskForProgramName}"
+							},
+							"stopOnEntry": {
+								"type": "boolean",
+								"description": "Automatically stop after launch.",
+								"default": true
+							},
+							"trace": {
+								"type": "boolean",
+								"description": "Enable logging of the Debug Adapter Protocol.",
+								"default": true
+							}
+						}
+					}
+				},
+				"initialConfigurations": [
+					{
+						"type": "gluadebug",
+						"request": "launch",
+						"name": "Ask for file name",
+						"program": "${workspaceFolder}/${command:AskForProgramName}",
+						"stopOnEntry": true
+					}
+				],
+				"configurationSnippets": [
+					{
+						"label": "glua Debug: Launch",
+						"description": "A new configuration for 'debugging' a user selected markdown file.",
+						"body": {
+							"type": "gluadebug",
+							"request": "launch",
+							"name": "Ask for file name",
+							"program": "^\"\\${workspaceFolder}/\\${command:AskForProgramName}\"",
+							"stopOnEntry": true
+						}
+					}
+				],
+				"variables": {
+					"AskForProgramName": "extension.glua-debug.getProgramName"
+				}
+			}
+		]
+	}
+}
