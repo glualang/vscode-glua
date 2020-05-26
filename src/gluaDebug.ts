@@ -9,6 +9,7 @@ import {
 	ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent,
 	Thread, StackFrame, Scope, Source, Handles, Breakpoint
 } from 'vscode-debugadapter';
+import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
 import { GluaRuntime, MockBreakpoint } from './gluaRuntime';
@@ -115,7 +116,23 @@ export class GluaDebugSession extends LoggingDebugSession {
 	 * The 'initialize' request is the first request called by the frontend
 	 * to interrogate the features the debug adapter provides.
 	 */
-	protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
+	protected async initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments) {
+
+		// 需要询问用户调用的方法名和参数
+		const inputMethodWithArgStr = await vscode.window.showInputBox({
+			placeHolder: "Please enter the method and argument to debug(seperate by space)",
+			value: ""
+		}) || ''
+		console.log('inputMethodWithArgStr', inputMethodWithArgStr)
+		const firstSpaceIdx = inputMethodWithArgStr.indexOf(' ')
+		if(firstSpaceIdx<0) {
+			vscode.window.showErrorMessage('please enter method and argument to debug')
+			this.sendEvent(new TerminatedEvent());
+			return
+		}
+		const methodToInvoke= inputMethodWithArgStr.substring(0, firstSpaceIdx)
+		const argumentToInvoke = inputMethodWithArgStr.substr(firstSpaceIdx+1)
+		// TODO: 调用simplechain rpc来开启调试
 
 		if (args.supportsProgressReporting) {
 			this._reportProgress = true;

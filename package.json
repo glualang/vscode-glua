@@ -57,10 +57,23 @@
 		"onDebug",
 		"onDebugDynamicConfigurations:mock",
 		"onCommand:extension.glua-debug.getProgramName",
-		"onCommand:gluadebug.setEndpoint"
+		"onCommand:gluaDebug.setEndpoint"
 	],
 	"contributes": {
+		"languages": [
+			{
+				"id": "glua",
+				"extensions": [
+					".glua",
+					".glua.lua"
+				],
+				"aliases": ["glua source file"]
+			}
+		],
 		"breakpoints": [
+			{
+				"extension": ".glua"
+			},
 			{
 				"language": "glua"
 			}

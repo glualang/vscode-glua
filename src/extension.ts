@@ -105,6 +105,8 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	*/
 
+	// TODO: 左侧activityView需要可以查看当前注册在simplechain中的合约列表以及合约的各API和storages等
+
 }
 
 export function deactivate() {
