@@ -50,7 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
 			.then(res => {
 				console.log('deploy contract res', res)
 				const contractId = res
-				const apiName = 'state' // TODO
+				const apiName = 'tokenSymbol' // TODO
 				setCurrentContractId(contractId, apiName)
 			})
 			.catch(e => {

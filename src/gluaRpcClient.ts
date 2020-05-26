@@ -107,7 +107,7 @@ export class GluaRpcClient {
 }
 
 let currentContractId: string = 'CON12a1119f2d28687b0b4000c8dfbc5b75c415f69b' // ''  'test' is for development
-let currentContractApi: string | undefined = 'state' // undefined
+let currentContractApi: string | undefined = 'tokenSymbol' // undefined
 
 export function setCurrentContractId(contractId: string, apiName?: string) {
 	currentContractId = contractId
