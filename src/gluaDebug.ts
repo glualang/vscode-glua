@@ -307,8 +307,8 @@ export class GluaDebugSession extends LoggingDebugSession {
 		for(let i=0;i<res.length;i++) {
 			const item = res[i];
 			const filename = this.rpcClient.resolveFilename(item);
-			const methodName = item
-			const line = 1 // TODO
+			const methodName = item.func || 'annoy'
+			const line = item.line || 1
 			const sf = new StackFrame(i, methodName, this.createSource(filename), this.convertDebuggerLineToClient(line - 1));
 			if (typeof item.column === 'number') {
 				sf.column = this.convertDebuggerColumnToClient(item.column);
@@ -330,6 +330,7 @@ export class GluaDebugSession extends LoggingDebugSession {
 			scopes: [
 				new Scope("Local", this._variableHandles.create("local"), false),
 				new Scope("Global", this._variableHandles.create("global"), true)
+				// TODO: show current contract storages
 			]
 		};
 		this.sendResponse(response);

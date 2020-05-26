@@ -2,7 +2,7 @@ const rp = require('request-promise');
 
 // TODO: use simplechain debugger
 
-const endpoint = `http://localhost:5050/api`
+const endpoint = `http://localhost:8080/api`
 
 export class GluaRpcClient {
 	async callRpc(method: string, params: Array<any>) {
@@ -17,10 +17,10 @@ export class GluaRpcClient {
 				params
 			}
 		})
-		if(!res) {
+		if (!res) {
 			throw new Error(`rpc ${method} error empty response`)
 		}
-		if(res.error) {
+		if (res.error) {
 			throw new Error(`rpc ${method} error ${res.error}`)
 		}
 		return res.result
@@ -33,7 +33,7 @@ export class GluaRpcClient {
 		const callerAddr = 'test'
 		const gasLimit = 10000;
 		const gasPrice = 1
-		const {contract_address, txid} = await this.callRpc('create_contract_from_file', [callerAddr, contractPath, gasLimit, gasPrice])
+		const { contract_address, txid } = await this.callRpc('create_contract_from_file', [callerAddr, contractPath, gasLimit, gasPrice])
 		console.log(`deploy contract txid ${txid} contract address ${contract_address}`)
 		await this.generateBlock()
 		return contract_address
@@ -60,15 +60,31 @@ export class GluaRpcClient {
 	}
 	async getSpanStackTrace(spanId: string, seqInSpan: Number) {
 		let res = await this.callRpc('view_call_stack', [])
+		console.log('view_call_stack raw response', res)
 		// TODO: now simplechain call stack have some problems
-		res = [
-			'TODO'
-		]
-		return res
+		const stacktrace: Array<any> = []
+		for(const item of res) {
+			const splited = item.split(',')
+			if(splited.length>0) {
+				const stackItem = {}
+				for(const s of splited) {
+					if(s.indexOf(':')>0) {
+						const key = s.substring(0, s.indexOf(':'))
+						const value = s.substring(s.indexOf(':')+1)
+						stackItem[key] = value
+						if(key==='line') {
+							stackItem['line'] = parseInt(value)
+						}
+					}
+				}
+				stacktrace.push(stackItem)
+			}
+		}
+		return stacktrace
 	}
 	// TODO: get upvalues
 
-	async getStackVariables(spanId ?: string, seqInSpan ?: Number) {
+	async getStackVariables(spanId?: string, seqInSpan?: Number) {
 		const res = await this.callRpc('view_localvars_in_last_debugger_state', [])
 		return res
 	}
@@ -97,17 +113,17 @@ export class GluaRpcClient {
 		})
 		return res
 	}
-	async getNextRequest(traceId: string | undefined, spanId : string | undefined, seqInSpan: Number | undefined, stepType: string, breakpoints) {
+	async getNextRequest(traceId: string | undefined, spanId: string | undefined, seqInSpan: Number | undefined, stepType: string, breakpoints) {
 		const res = await this.callRpc(`debugger_${stepType}`, [])
 		return res
 	}
 	resolveFilename(item: any): string {
-		return `/home/developer/repos/vscode-glua-extension/mock_test/token.glua` // TODO: 找到源码位置
+		return `E:/projects/vscode-glua/mock_test/contract.glua` // TODO: 找到源码位置
 	}
 }
 
-let currentContractId: string = 'CON12a1119f2d28687b0b4000c8dfbc5b75c415f69b' // ''  'test' is for development
-let currentContractApi: string | undefined = 'tokenSymbol' // undefined
+let currentContractId: string = 'CON5ce1b75439d9c58f9ef77142c2f23e2e31c0b347' // ''  'test' is for development
+let currentContractApi: string | undefined = 'query' // undefined
 
 export function setCurrentContractId(contractId: string, apiName?: string) {
 	currentContractId = contractId

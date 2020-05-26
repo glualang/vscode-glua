@@ -1,7 +1,7 @@
 -- ERC20合约
 -- 支持多签合约持有本合约代币的版本
 
-type State = 'NOT_INITED' | 'COMMON' | 'PAUSED' | 'STOPPED'
+-- type State = 'NOT_INITED' | 'COMMON' | 'PAUSED' | 'STOPPED'
 
 type Storage = {
     name: string,
@@ -308,7 +308,7 @@ offline function M:users(arg: string)
     end
     let userAddresses: Array<string> = []
     var userAddr: string
-    for userAddr in pairs(self.storage.users) do 
+    for userAddr in pairs(self.storage.users) do
         table.append(userAddresses, userAddr)
     end
     var result: Array<string> = []
@@ -390,7 +390,7 @@ function M:transferFrom(arg: string)
     if (not amount) or (amount <= 0) then
         return error("amount must be positive integer")
     end
-    
+
     let fee = self.storage.fee
     let minTransferAmount = self.storage.minTransferAmount
     let feeReceiveAddress = self.storage.feeReceiveAddress

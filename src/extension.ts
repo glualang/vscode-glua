@@ -44,13 +44,13 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.deployContract', () => {
 		// TODO: get current selected document as contract file and call deploy
-		const contractFile = `/code/token.glua.gpc`
+		const contractFile = `E:/projects/vscode-glua/mock_test/contract.glua.gpc`
 		const rpcClient = new GluaRpcClient()
 		rpcClient.deployContract(contractFile)
 			.then(res => {
 				console.log('deploy contract res', res)
 				const contractId = res
-				const apiName = 'tokenSymbol' // TODO
+				const apiName = 'query' // TODO
 				setCurrentContractId(contractId, apiName)
 			})
 			.catch(e => {
