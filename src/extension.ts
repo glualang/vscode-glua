@@ -9,6 +9,7 @@ import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken 
 import { GluaDebugSession } from './gluaDebug';
 // import { setCurrentTraceId } from './gluaRpcClient';
 import * as Net from 'net';
+import { GluaRpcClient, setCurrentContractId } from './gluaRpcClient';
 
 /*
  * The compile time flag 'runMode' controls how the debug adapter is run.
@@ -40,6 +41,22 @@ export function activate(context: vscode.ExtensionContext) {
 		// 	// TODO: set current traceId
 		// })
 	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.deployContract', () => {
+		// TODO: get current selected document as contract file and call deploy
+		const contractFile = `/code/token.glua.gpc`
+		const rpcClient = new GluaRpcClient()
+		rpcClient.deployContract(contractFile)
+			.then(res => {
+				console.log('deploy contract res', res)
+				const contractId = res
+				const apiName = 'state' // TODO
+				setCurrentContractId(contractId, apiName)
+			})
+			.catch(e => {
+				console.log('deploy contract error', e)
+			})
+	}))
 
 	// register a configuration provider for 'gluadebug' debug type
 	const provider = new MockConfigurationProvider();

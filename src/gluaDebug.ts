@@ -13,7 +13,7 @@ import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
 import { GluaRuntime, MockBreakpoint } from './gluaRuntime';
-import { GluaRpcClient, getCurrentTraceId, getCurrentSpanId } from './gluaRpcClient';
+import { GluaRpcClient, getCurrentContractId, getCurrenContractApi } from './gluaRpcClient';
 // import * as http from 'http';
 // const rp = require('request-promise');
 const { Subject } = require('await-notify');
@@ -58,8 +58,8 @@ export class GluaDebugSession extends LoggingDebugSession {
 	private _isProgressCancellable = true;
 
 	// 调试器当前的traceId, spanId, seqInSpan
-	private currentTraceId ?: string = undefined
-	private currentSpanId ?: string = undefined
+	private currentContractId ?: string = undefined
+	private currentContractAPi ?: string = undefined
 	private currentSeqInSpan?: Number = 0
 
 	/**
@@ -117,23 +117,6 @@ export class GluaDebugSession extends LoggingDebugSession {
 	 * to interrogate the features the debug adapter provides.
 	 */
 	protected async initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments) {
-
-		// 需要询问用户调用的方法名和参数
-		const inputMethodWithArgStr = await vscode.window.showInputBox({
-			placeHolder: "Please enter the method and argument to debug(seperate by space)",
-			value: ""
-		}) || ''
-		console.log('inputMethodWithArgStr', inputMethodWithArgStr)
-		const firstSpaceIdx = inputMethodWithArgStr.indexOf(' ')
-		if(firstSpaceIdx<0) {
-			vscode.window.showErrorMessage('please enter method and argument to debug')
-			this.sendEvent(new TerminatedEvent());
-			return
-		}
-		const methodToInvoke= inputMethodWithArgStr.substring(0, firstSpaceIdx)
-		const argumentToInvoke = inputMethodWithArgStr.substr(firstSpaceIdx+1)
-		// TODO: 调用simplechain rpc来开启调试
-
 		if (args.supportsProgressReporting) {
 			this._reportProgress = true;
 		}
@@ -186,17 +169,47 @@ export class GluaDebugSession extends LoggingDebugSession {
 	}
 
 	protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
-
-		this.currentTraceId = getCurrentTraceId();
-		this.currentSpanId = getCurrentSpanId();
-		console.log('current traceId, spanId set to ' + this.currentTraceId + ', ' + this.currentSpanId)
-
-		const firstSpanRes = await this.rpcClient.getNextRequest(this.currentTraceId, undefined, undefined, 'step_over', [])
-		if(firstSpanRes) {
-			console.log('firstSpanRes', firstSpanRes)
-			this.currentSpanId = firstSpanRes.spanId
-			this.currentSeqInSpan = firstSpanRes.seqInSpan
+		// 需要询问用户调用的方法名和参数
+		const inputMethodWithArgStr = await vscode.window.showInputBox({
+			placeHolder: "Please enter the method and argument to debug(seperate by space)",
+			value: ""
+		}) || ''
+		console.log('inputMethodWithArgStr', inputMethodWithArgStr)
+		const firstSpaceIdx = inputMethodWithArgStr.indexOf(' ')
+		if(firstSpaceIdx<0) {
+			vscode.window.showErrorMessage('please enter method and argument to debug')
+			this.sendEvent(new TerminatedEvent());
+			return
 		}
+		const methodToInvoke= inputMethodWithArgStr.substring(0, firstSpaceIdx)
+		const argumentToInvoke = inputMethodWithArgStr.substr(firstSpaceIdx+1)
+		console.log(`methodToInvoke: ${methodToInvoke}`)
+		console.log(`argumentToInvoke: ${argumentToInvoke}`)
+		// TODO: 调用simplechain rpc来开启调试
+		const contracts = await this.rpcClient.listContracts()
+		console.log(`contracts: ${contracts}`)
+
+		this.currentContractId = getCurrentContractId() || '';
+		this.currentContractAPi = getCurrenContractApi() || '';
+		console.log('current contractAddress, apiName set to ' + this.currentContractId + ', ' + this.currentContractAPi)
+
+		// TODO: add breakpoints and entrypoint breakpoint
+		await this.rpcClient.clearBreakpoints()
+		for(let i =0;i<250;i++) {
+			await this.rpcClient.setBreakpoint(this.currentContractId, i) // 191 TODO: simplechain need to debugger stop at entrypoint
+		}
+
+		// start debugger invoke
+		const invokeRes = await this.rpcClient.debuggerInvokeContract(this.currentContractId, this.currentContractAPi, ['hi'])
+		console.log(`debugger invoke contract response`, invokeRes)
+		// TODO: if run to end, not paused, send terminated event
+
+		// const firstSpanRes = await this.rpcClient.getNextRequest(this.currentTraceId, undefined, undefined, 'step_over', [])
+		// if(firstSpanRes) {
+		// 	console.log('firstSpanRes', firstSpanRes)
+		// 	this.currentSpanId = firstSpanRes.spanId
+		// 	this.currentSeqInSpan = firstSpanRes.seqInSpan
+		// }
 
 		// make sure to 'Stop' the buffered logging if 'trace' is not set
 		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
@@ -286,17 +299,17 @@ export class GluaDebugSession extends LoggingDebugSession {
 		// };
 
 		// get stack frames of span from api server
-		const spanId = this.currentSpanId
+		const spanId = this.currentContractAPi
 		const seqInSpan = this.currentSeqInSpan
 		const res = await this.rpcClient.getSpanStackTrace(<string> spanId, <Number> seqInSpan);
 		console.log('view span stack trace response', res)
 		const stackFrames: Array<StackFrame> = []
 		for(let i=0;i<res.length;i++) {
 			const item = res[i];
-			const moduleId = item.moduleId
-			const classname = item.classname
-			const filename = this.rpcClient.resolveFilename(moduleId, classname, item.filename);
-			const sf = new StackFrame(i, item.methodName, this.createSource(filename), this.convertDebuggerLineToClient((item.line || 1) - 1));
+			const filename = this.rpcClient.resolveFilename(item);
+			const methodName = item
+			const line = 1 // TODO
+			const sf = new StackFrame(i, methodName, this.createSource(filename), this.convertDebuggerLineToClient(line - 1));
 			if (typeof item.column === 'number') {
 				sf.column = this.convertDebuggerColumnToClient(item.column);
 			}
@@ -356,16 +369,18 @@ export class GluaDebugSession extends LoggingDebugSession {
 			const id = this._variableHandles.get(args.variablesReference);
 
 			// get variables from api
-			const spanId = this.currentSpanId
+			const spanId = this.currentContractAPi
 			const seqInSpan = this.currentSeqInSpan
 			const res = await this.rpcClient.getStackVariables(spanId, seqInSpan)
 			console.log('view stack variables res', res)
-			const variableValues = res.variableValues
-			for(const item of variableValues) {
+			// TODO
+			const variableValues = res
+			for(const key in variableValues) {
+				const value = variableValues[key]
 				variables.push({
-					name: item.name,
+					name: key,
 					type: 'string',
-					value: item.value,
+					value: value,
 					variablesReference: 0
 				})
 			}
@@ -429,24 +444,24 @@ export class GluaDebugSession extends LoggingDebugSession {
 	 private async sendNextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments, stepType: string) {
 		this.sendResponse(response);
 
-		if(!this.currentSpanId) {
+		if(!this.currentContractAPi) {
 			console.log('trace ended')
 			this.sendEvent(new TerminatedEvent())
 			return
 		}
 		const breakpoints = []
-		const res = await this.rpcClient.getNextRequest(this.currentTraceId, this.currentSpanId, this.currentSeqInSpan, stepType, breakpoints)
+		const res = await this.rpcClient.getNextRequest(this.currentContractId, this.currentContractAPi, this.currentSeqInSpan, stepType, breakpoints)
 		console.log('next step span response', res)
-		if(!res || !res.spanId) {
-			this.currentSpanId = undefined
-			this.currentSeqInSpan = undefined
-			console.log('end trace')
-			this.sendEvent(new TerminatedEvent())
-			return
-		}
-		this.currentSpanId = res.spanId
+		// if(!res || !res.spanId) {
+		// 	this.currentContractAPi = undefined
+		// 	this.currentSeqInSpan = undefined
+		// 	console.log('end trace')
+		// 	this.sendEvent(new TerminatedEvent())
+		// 	return
+		// }
+		this.currentContractAPi = res.spanId
 		this.currentSeqInSpan = res.seqInSpan
-		console.log('current spanId ' + this.currentSpanId + " seqInSpan " + this.currentSeqInSpan)
+		console.log('current spanId ' + this.currentContractAPi + " seqInSpan " + this.currentSeqInSpan)
 	 }
 
 	protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments) {

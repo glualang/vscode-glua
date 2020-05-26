@@ -57,7 +57,8 @@
 		"onDebug",
 		"onDebugDynamicConfigurations:mock",
 		"onCommand:extension.glua-debug.getProgramName",
-		"onCommand:gluaDebug.setEndpoint"
+		"onCommand:gluaDebug.setEndpoint",
+		"onCommand:gluaDebug.deployContract"
 	],
 	"contributes": {
 		"languages": [
@@ -67,7 +68,9 @@
 					".glua",
 					".glua.lua"
 				],
-				"aliases": ["glua source file"]
+				"aliases": [
+					"glua source file"
+				]
 			}
 		],
 		"breakpoints": [
@@ -76,6 +79,16 @@
 			},
 			{
 				"language": "glua"
+			}
+		],
+		"commands": [
+			{
+				"command": "gluaDebug.deployContract",
+				"title": "deploy contract"
+			},
+			{
+				"command": "gluaDebug.setEndpoint",
+				"title": "set glua debug endpoint"
 			}
 		],
 		"debuggers": [
