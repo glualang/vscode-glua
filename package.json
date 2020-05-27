@@ -150,12 +150,19 @@
 			}
 		],
 		"views": {
-			"contracts-explorer": [
+			"explorer": [
 				{
 					"id": "contractNodes",
 					"name": "Contracts"
 				}
+			],
+			"debug": [
+				{
+					"id": "contractNodesInDebugView",
+					"name": "Contracts"
+				}
 			]
-		}
+		},
+		"menus": {}
 	}
 }

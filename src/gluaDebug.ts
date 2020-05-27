@@ -13,7 +13,7 @@ import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
 import { GluaRuntime, MockBreakpoint } from './gluaRuntime';
-import { GluaRpcClient, getCurrentContractId, getCurrenContractApi } from './gluaRpcClient';
+import { GluaRpcClient, getCurrentContractId, getCurrenContractApi, setCurrentProgramPath } from './gluaRpcClient';
 // import * as http from 'http';
 // const rp = require('request-promise');
 const { Subject } = require('await-notify');
@@ -58,8 +58,8 @@ export class GluaDebugSession extends LoggingDebugSession {
 	private _isProgressCancellable = true;
 
 	// 调试器当前的一些设置
-	private currentContractId ?: string = undefined
-	private currentContractAPi ?: string = undefined
+	private currentContractId?: string = undefined
+	private currentContractAPi?: string = undefined
 	private currentSeqInSpan?: Number = 0
 	private breakpoints: Array<any> = []
 
@@ -140,7 +140,7 @@ export class GluaDebugSession extends LoggingDebugSession {
 
 		// make VS Code to support completion in REPL
 		response.body.supportsCompletionsRequest = true;
-		response.body.completionTriggerCharacters = [ ".", "[" ];
+		response.body.completionTriggerCharacters = [".", "["];
 
 		// make VS Code to send cancelRequests
 		response.body.supportsCancelRequest = true;
@@ -188,9 +188,17 @@ export class GluaDebugSession extends LoggingDebugSession {
 		// console.log(`methodToInvoke: ${methodToInvoke}`)
 		// console.log(`argumentToInvoke: ${argumentToInvoke}`)
 
+		const programPath = args.program
+		if (!programPath) {
+			vscode.window.showErrorMessage(`please open the source file to debugger`)
+			this.sendEvent(new TerminatedEvent(false))
+			return
+		}
+		setCurrentProgramPath(programPath)
+
 		this.currentContractId = getCurrentContractId() || '';
 		this.currentContractAPi = getCurrenContractApi() || '';
-		if(!this.currentContractId || !this.currentContractAPi) {
+		if (!this.currentContractId || !this.currentContractAPi) {
 			vscode.window.showErrorMessage(`please select a contract and api to debugger in explorer`)
 			this.sendEvent(new TerminatedEvent(false))
 			return
@@ -199,21 +207,27 @@ export class GluaDebugSession extends LoggingDebugSession {
 
 		// add breakpoints and entrypoint breakpoint
 		await this.rpcClient.clearBreakpoints()
-		for(const bp of this.breakpoints) {
+		for (const bp of this.breakpoints) {
 			await this.rpcClient.setBreakpoint(this.currentContractId, bp.line)
 		}
 
+		// 让用户输入合约调用参数
+		const apiArg = await vscode.window.showInputBox({
+			placeHolder: "Please enter the invoke argument",
+			value: ''
+		})
+
 		// start debugger invoke
-		const invokeRes = await this.rpcClient.debuggerInvokeContract(this.currentContractId, this.currentContractAPi, ['hi'])
+		const invokeRes = await this.rpcClient.debuggerInvokeContract(this.currentContractId, this.currentContractAPi, [apiArg])
 		console.log(`debugger invoke contract response`, invokeRes)
-		if(!invokeRes.exec_succeed) {
+		if (!invokeRes.exec_succeed) {
 			vscode.window.showErrorMessage(`something error happen`)
 			this.sendEvent(new TerminatedEvent(false))
 			return
 		}
 		// 请求simplechain检查是否进入了断点，如果不是，结束调试
 		const debuggerStateContractId = await this.rpcClient.getCurrentDebugStateContractId()
-		if(debuggerStateContractId !== this.currentContractId) {
+		if (debuggerStateContractId !== this.currentContractId) {
 			console.log(`debugger state contract id ${debuggerStateContractId} not current contract id, maybe debugger end`)
 			this.sendEvent(new TerminatedEvent(false))
 			return
@@ -242,8 +256,9 @@ export class GluaDebugSession extends LoggingDebugSession {
 		// set and verify breakpoint locations
 		const actualBreakpoints = clientLines.map(l => {
 			let { verified, line, id } = this._runtime.setBreakPoint(path, this.convertClientLineToDebugger(l));
-			const bp = <DebugProtocol.Breakpoint> new Breakpoint(verified, this.convertDebuggerLineToClient(line));
-			bp.id= id;
+			const bp = <DebugProtocol.Breakpoint>new Breakpoint(verified, this.convertDebuggerLineToClient(line));
+			bp.id = id;
+			bp.source = this.createSource(path)
 			return bp;
 		});
 
@@ -312,10 +327,10 @@ export class GluaDebugSession extends LoggingDebugSession {
 		// get stack frames of span from api server
 		const spanId = this.currentContractAPi
 		const seqInSpan = this.currentSeqInSpan
-		const res = await this.rpcClient.getSpanStackTrace(<string> spanId, <Number> seqInSpan);
+		const res = await this.rpcClient.getSpanStackTrace(<string>spanId, <Number>seqInSpan);
 		console.log('view span stack trace response', res)
 		const stackFrames: Array<StackFrame> = []
-		for(let i=0;i<res.length;i++) {
+		for (let i = 0; i < res.length; i++) {
 			const item = res[i];
 			const filename = this.rpcClient.resolveFilename(item);
 			const methodName = item.func || 'annoy'
@@ -340,8 +355,8 @@ export class GluaDebugSession extends LoggingDebugSession {
 		response.body = {
 			scopes: [
 				new Scope("Local", this._variableHandles.create("local"), false),
-				new Scope("Global", this._variableHandles.create("global"), true)
-				// TODO: show current contract storages
+				new Scope("Upvalue", this._variableHandles.create("upvalue"), true),
+				new Scope("Storage", this._variableHandles.create("storage"), true)
 			]
 		};
 		this.sendResponse(response);
@@ -380,59 +395,92 @@ export class GluaDebugSession extends LoggingDebugSession {
 
 			const id = this._variableHandles.get(args.variablesReference);
 
-			// get variables from api
-			const spanId = this.currentContractAPi
-			const seqInSpan = this.currentSeqInSpan
-			const res = await this.rpcClient.getStackVariables(spanId, seqInSpan)
-			console.log('view stack variables res', res)
-			const variableValues = res
-			for(const key in variableValues) {
-				const value = variableValues[key]
-				variables.push({
-					name: key,
-					type: 'string',
-					value: value,
-					variablesReference: 0
-				})
-			}
 
 			if (id) {
 
-			// 	variables.push({
-			// 		name: id + "_i",
-			// 		type: "integer",
-			// 		value: "123",
-			// 		variablesReference: 0
-			// 	});
-			// 	variables.push({
-			// 		name: id + "_f",
-			// 		type: "float",
-			// 		value: "3.14",
-			// 		variablesReference: 0
-			// 	});
-			// 	variables.push({
-			// 		name: id + "_s",
-			// 		type: "string",
-			// 		value: "hello world",
-			// 		variablesReference: 0
-			// 	});
-			// 	variables.push({
-			// 		name: id + "_o",
-			// 		type: "object",
-			// 		value: "Object",
-			// 		variablesReference: this._variableHandles.create(id + "_o")
-			// 	});
+
+				// get variables from api
+				if (id === 'local') {
+					const res = await this.rpcClient.getStackVariables()
+					console.log('view stack variables res', res)
+					const variableValues = res
+					for (const key in variableValues) {
+						const value = variableValues[key]
+						variables.push({
+							name: key,
+							type: 'string',
+							value: value,
+							variablesReference: 0
+						})
+					}
+				} else if (id === 'upvalue') {
+					// const res = await this.rpcClient.getStackUpvalues()
+					// console.log('view stack upvalues res', res)
+					// const variableValues = res
+					// for(const key in variableValues) {
+					// 	const value = variableValues[key]
+					// 	variables.push({
+					// 		name: key,
+					// 		type: 'string',
+					// 		value: value,
+					// 		variablesReference: 0
+					// 	})
+					// }
+				} else if (id === 'storage') {
+					try {
+						const contractInfo = await this.rpcClient.getContractInfoWithCache(this.currentContractId || '')
+						const storageProps = contractInfo.storage_properties
+						for (const item of storageProps) {
+							const storageName = <string>item[0]
+							const value = await this.rpcClient.getStackStorageValue(storageName)
+							console.log(`storage ${storageName} value`, value)
+							variables.push({
+								name: storageName,
+								type: 'string',
+								value: value,
+								variablesReference: 0
+							})
+						}
+					} catch (e) {
+						console.log('get upvalue error', e)
+					}
+				}
+
+				// 	variables.push({
+				// 		name: id + "_i",
+				// 		type: "integer",
+				// 		value: "123",
+				// 		variablesReference: 0
+				// 	});
+				// 	variables.push({
+				// 		name: id + "_f",
+				// 		type: "float",
+				// 		value: "3.14",
+				// 		variablesReference: 0
+				// 	});
+				// 	variables.push({
+				// 		name: id + "_s",
+				// 		type: "string",
+				// 		value: "hello world",
+				// 		variablesReference: 0
+				// 	});
+				// 	variables.push({
+				// 		name: id + "_o",
+				// 		type: "object",
+				// 		value: "Object",
+				// 		variablesReference: this._variableHandles.create(id + "_o")
+				// 	});
 
 				// cancelation support for long running requests
-				const nm = id + "_long_running";
-				const ref = this._variableHandles.create(id + "_lr");
-				variables.push({
-					name: nm,
-					type: "object",
-					value: "Object",
-					variablesReference: ref
-				});
-				this._isLongrunning.set(ref, true);
+				// const nm = id + "_long_running";
+				// const ref = this._variableHandles.create(id + "_lr");
+				// variables.push({
+				// 	name: nm,
+				// 	type: "object",
+				// 	value: "Object",
+				// 	variablesReference: ref
+				// });
+				// this._isLongrunning.set(ref, true);
 			}
 		}
 
@@ -447,15 +495,15 @@ export class GluaDebugSession extends LoggingDebugSession {
 		await this.sendNextRequest(response, args, 'continue')
 	}
 
-	protected reverseContinueRequest(response: DebugProtocol.ReverseContinueResponse, args: DebugProtocol.ReverseContinueArguments) : void {
+	protected reverseContinueRequest(response: DebugProtocol.ReverseContinueResponse, args: DebugProtocol.ReverseContinueArguments): void {
 		this._runtime.continue(true);
 		this.sendResponse(response);
-	 }
+	}
 
-	 private async sendNextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments, stepType: string) {
+	private async sendNextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments, stepType: string) {
 		this.sendResponse(response);
 
-		if(!this.currentContractAPi) {
+		if (!this.currentContractAPi) {
 			console.log('trace ended')
 			this.sendEvent(new TerminatedEvent())
 			return
@@ -473,7 +521,7 @@ export class GluaDebugSession extends LoggingDebugSession {
 		this.currentContractAPi = res.spanId
 		this.currentSeqInSpan = res.seqInSpan
 		console.log('current spanId ' + this.currentContractAPi + " seqInSpan " + this.currentSeqInSpan)
-	 }
+	}
 
 	protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments) {
 		// this._runtime.step();
@@ -493,7 +541,7 @@ export class GluaDebugSession extends LoggingDebugSession {
 		console.log('stepInTargetsRequest')
 		const targets = this._runtime.getStepInTargets(args.frameId);
 		response.body = {
-			targets: targets.map(t => { return { id: t.id, label: t.label }} )
+			targets: targets.map(t => { return { id: t.id, label: t.label } })
 		};
 		this.sendResponse(response);
 	}
@@ -521,8 +569,8 @@ export class GluaDebugSession extends LoggingDebugSession {
 			const matches = /new +([0-9]+)/.exec(args.expression);
 			if (matches && matches.length === 2) {
 				const mbp = this._runtime.setBreakPoint(this._runtime.sourceFile, this.convertClientLineToDebugger(parseInt(matches[1])));
-				const bp = <DebugProtocol.Breakpoint> new Breakpoint(mbp.verified, this.convertDebuggerLineToClient(mbp.line), undefined, this.createSource(this._runtime.sourceFile));
-				bp.id= mbp.id;
+				const bp = <DebugProtocol.Breakpoint>new Breakpoint(mbp.verified, this.convertDebuggerLineToClient(mbp.line), undefined, this.createSource(this._runtime.sourceFile));
+				bp.id = mbp.id;
 				this.sendEvent(new BreakpointEvent('new', bp));
 				reply = `breakpoint created`;
 			} else {
@@ -530,8 +578,8 @@ export class GluaDebugSession extends LoggingDebugSession {
 				if (matches && matches.length === 2) {
 					const mbp = this._runtime.clearBreakPoint(this._runtime.sourceFile, this.convertClientLineToDebugger(parseInt(matches[1])));
 					if (mbp) {
-						const bp = <DebugProtocol.Breakpoint> new Breakpoint(false);
-						bp.id= mbp.id;
+						const bp = <DebugProtocol.Breakpoint>new Breakpoint(false);
+						bp.id = mbp.id;
 						this.sendEvent(new BreakpointEvent('removed', bp));
 						reply = `breakpoint deleted`;
 					}
@@ -590,18 +638,18 @@ export class GluaDebugSession extends LoggingDebugSession {
 	protected dataBreakpointInfoRequest(response: DebugProtocol.DataBreakpointInfoResponse, args: DebugProtocol.DataBreakpointInfoArguments): void {
 
 		response.body = {
-            dataId: null,
-            description: "cannot break on data access",
-            accessTypes: undefined,
-            canPersist: false
-        };
+			dataId: null,
+			description: "cannot break on data access",
+			accessTypes: undefined,
+			canPersist: false
+		};
 
 		if (args.variablesReference && args.name) {
 			const id = this._variableHandles.get(args.variablesReference);
 			if (id.startsWith("global_")) {
 				response.body.dataId = args.name;
 				response.body.description = args.name;
-				response.body.accessTypes = [ "read" ];
+				response.body.accessTypes = ["read"];
 				response.body.canPersist = true;
 			}
 		}
@@ -666,7 +714,7 @@ export class GluaDebugSession extends LoggingDebugSession {
 			this._cancelationTokens.set(args.requestId, true);
 		}
 		if (args.progressId) {
-			this._cancelledProgressId= args.progressId;
+			this._cancelledProgressId = args.progressId;
 		}
 	}
 

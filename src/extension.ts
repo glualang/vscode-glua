@@ -51,10 +51,12 @@ export function activate(context: vscode.ExtensionContext) {
 			.then(res => {
 				console.log('deploy contract res', res)
 				const contractId = res
-				const apiName = 'query' // TODO
-				setCurrentContractId(contractId, apiName)
-				// TODO: show info message
-				// TODO: trigger contract list view refresh
+				setCurrentContractId(contractId)
+				vscode.window.showInformationMessage(`deployed contract ${contractId} successfully`)
+				// TODO: mapping contractId to source file path
+
+				// trigger contract list view refresh
+				contractsNodeProvider.refresh()
 			})
 			.catch(e => {
 				console.log('deploy contract error', e)
@@ -128,9 +130,12 @@ export function activate(context: vscode.ExtensionContext) {
 	// TODO: 左侧activityView需要可以查看当前注册在simplechain中的合约列表以及合约的各API和storages等
 	const contractsNodeProvider = new ContractsNodeProvider();
 	vscode.window.registerTreeDataProvider('contractNodes', contractsNodeProvider);
+	vscode.window.registerTreeDataProvider('contractNodesInDebugView', contractsNodeProvider);
 	vscode.commands.registerCommand('extension.setContractIdAndApiToDebug', (contractId: string, apiName: string) => {
 		setCurrentContractId(contractId, apiName)
 		vscode.window.showInformationMessage(`selected contractId and ${apiName} to debugger`);
+		// TODO: 更新tree view的显示(selected)
+		contractsNodeProvider.refresh()
 	})
 
 }

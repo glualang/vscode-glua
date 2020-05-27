@@ -46,6 +46,16 @@ export class GluaRpcClient {
 		const res = await this.callRpc('get_contract_info', [contractId])
 		return res
 	}
+	async getContractInfoWithCache(contractId: string) {
+		for(const addr in contractInfoMapping) {
+			if(addr === contractId) {
+				return contractInfoMapping[addr]
+			}
+		}
+		const info = await this.getContractInfo(contractId)
+		contractInfoMapping[contractId] = info
+		return info
+	}
 	async clearBreakpoints() {
 		await this.callRpc('clear_breakpoints_in_last_debugger_state', [])
 	}
@@ -97,11 +107,19 @@ export class GluaRpcClient {
 		}
 		return stacktrace
 	}
-	// TODO: get upvalues
+	// get upvalues
+	async getStackUpvalues() {
+		const res = await this.callRpc('view_upvalues_in_last_debugger_state', [])
+		return res
+	}
 
-	async getStackVariables(spanId?: string, seqInSpan?: Number) {
+	async getStackVariables() {
 		const res = await this.callRpc('view_localvars_in_last_debugger_state', [])
 		return res
+	}
+	async getStackStorageValue(storageName: string) {
+		const res = await this.callRpc('view_current_contract_storage_value', [storageName, '', false])
+		return res[storageName]
 	}
 	async listTraces() {
 		// TODO
@@ -129,16 +147,22 @@ export class GluaRpcClient {
 		return res
 	}
 	async getNextRequest(traceId: string | undefined, spanId: string | undefined, seqInSpan: Number | undefined, stepType: string, breakpoints) {
-		const res = await this.callRpc(`debugger_${stepType}`, [])
+		let rpcMethod = `debugger_${stepType}`
+		if(stepType==='continue') {
+			rpcMethod = 'debugger_go_resume'
+		}
+		const res = await this.callRpc(rpcMethod, [])
 		return res
 	}
 	resolveFilename(item: any): string {
-		return `E:/projects/vscode-glua/mock_test/contract.glua` // TODO: 找到源码位置
+		return getCurrentProgramPath() || ''
 	}
 }
 
 let currentContractId: string = '' // ''  'test' is for development
-let currentContractApi: string | undefined = '' // undefined
+let currentContractApi: string | undefined = undefined // undefined
+let currentProgramPath: string | undefined = undefined
+let contractInfoMapping: {} = {} // 当前已知的contract info address => info mapping
 
 export function setCurrentContractId(contractId: string, apiName?: string) {
 	currentContractId = contractId
@@ -151,4 +175,12 @@ export function getCurrentContractId(): string {
 
 export function getCurrenContractApi(): string | undefined {
 	return currentContractApi
+}
+
+export function setCurrentProgramPath(path: string) {
+	currentProgramPath = path
+}
+
+export function getCurrentProgramPath() {
+	return currentProgramPath
 }

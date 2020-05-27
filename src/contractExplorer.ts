@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import {GluaRpcClient} from './gluaRpcClient';
+import {GluaRpcClient, getCurrentContractId, getCurrenContractApi} from './gluaRpcClient';
 
 const rpcClient = new GluaRpcClient();
 
@@ -40,10 +40,9 @@ export class ContractsNodeProvider implements vscode.TreeDataProvider<vscode.Tre
 	}
 
 	private async getApiNodeList(contractId: string): Promise<vscode.TreeItem[]> {
-		const contractInfo = await rpcClient.getContractInfo(contractId)
+		const contractInfo = await rpcClient.getContractInfoWithCache(contractId)
 		console.log('contractInfo', contractInfo)
 		const toNode = (apiName: any): ApiNode => {
-			// 点击span的时候要设置这个traceId的这个spanId作为待调试对象，并toast提示用户
 			return new ApiNode(apiName, contractId, vscode.TreeItemCollapsibleState.None, {
 				command: 'extension.setContractIdAndApiToDebug',
 				title: '',
@@ -83,10 +82,16 @@ export class ContractNode extends vscode.TreeItem {
 	}
 
 	get tooltip(): string {
+		if(getCurrentContractId() === this.contractId) {
+			return `${this.label}-${this.contractId}-selected`
+		}
 		return `${this.label}-${this.contractId}`;
 	}
 
 	get description(): string {
+		if(getCurrentContractId() === this.contractId) {
+			return `${this.contractId}-selected`
+		}
 		return this.contractId;
 	}
 
@@ -106,11 +111,17 @@ export class ApiNode extends vscode.TreeItem {
 	}
 
 	get tooltip(): string {
+		if(getCurrentContractId() === this.contractId && getCurrenContractApi() === this.apiName) {
+			return `${this.apiName}-selected`
+		}
 		return `${this.apiName}`;
 	}
 
 	get description(): string {
-		return `${this.apiName}-${this.contractId}`;
+		if(getCurrentContractId() === this.contractId && getCurrenContractApi() === this.apiName) {
+			return `${this.apiName}-selected`
+		}
+		return `${this.apiName}`;
 	}
 
 	// iconPath = {
