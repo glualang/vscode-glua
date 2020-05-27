@@ -58,7 +58,8 @@
 		"onDebugDynamicConfigurations:mock",
 		"onCommand:extension.glua-debug.getProgramName",
 		"onCommand:gluaDebug.setEndpoint",
-		"onCommand:gluaDebug.deployContract"
+		"onCommand:gluaDebug.deployContract",
+		"onView:contractNodes"
 	],
 	"contributes": {
 		"languages": [
@@ -147,6 +148,14 @@
 					"AskForProgramName": "extension.glua-debug.getProgramName"
 				}
 			}
-		]
+		],
+		"views": {
+			"contracts-explorer": [
+				{
+					"id": "contractNodes",
+					"name": "Contracts"
+				}
+			]
+		}
 	}
 }

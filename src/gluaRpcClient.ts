@@ -28,7 +28,7 @@ export class GluaRpcClient {
 	async generateBlock() {
 		await this.callRpc('generate_block', [1])
 	}
-	// TODO: compile contract, start debugger by invoke contract
+	// TODO: compile contract
 	async deployContract(contractPath: string) {
 		const callerAddr = 'test'
 		const gasLimit = 10000;
@@ -40,6 +40,10 @@ export class GluaRpcClient {
 	}
 	async listContracts() {
 		const res = await this.callRpc('list_contracts', [])
+		return res
+	}
+	async getContractInfo(contractId: string) {
+		const res = await this.callRpc('get_contract_info', [contractId])
 		return res
 	}
 	async clearBreakpoints() {
@@ -57,6 +61,17 @@ export class GluaRpcClient {
 		const res = await this.callRpc('debugger_invoke_contract',
 			[callerAddr, contractAddr, apiName, apiArgs, depositAssetId, depositAmount, gasLimit, gasPrice])
 		return res
+	}
+	async viewDebugState() {
+		const res = await this.callRpc('view_debug_info', [])
+		return res
+	}
+	async getCurrentDebugStateContractId(): Promise<string | undefined> {
+		const res = await this.viewDebugState()
+		if(res.line <= 0) {
+			return undefined
+		}
+		return res.contractid
 	}
 	async getSpanStackTrace(spanId: string, seqInSpan: Number) {
 		let res = await this.callRpc('view_call_stack', [])
@@ -122,8 +137,8 @@ export class GluaRpcClient {
 	}
 }
 
-let currentContractId: string = 'CON5ce1b75439d9c58f9ef77142c2f23e2e31c0b347' // ''  'test' is for development
-let currentContractApi: string | undefined = 'query' // undefined
+let currentContractId: string = '' // ''  'test' is for development
+let currentContractApi: string | undefined = '' // undefined
 
 export function setCurrentContractId(contractId: string, apiName?: string) {
 	currentContractId = contractId

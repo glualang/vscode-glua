@@ -57,10 +57,12 @@ export class GluaDebugSession extends LoggingDebugSession {
 	private _cancelledProgressId: string | undefined = undefined;
 	private _isProgressCancellable = true;
 
-	// 调试器当前的traceId, spanId, seqInSpan
+	// 调试器当前的一些设置
 	private currentContractId ?: string = undefined
 	private currentContractAPi ?: string = undefined
 	private currentSeqInSpan?: Number = 0
+	private breakpoints: Array<any> = []
+
 
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
@@ -170,46 +172,52 @@ export class GluaDebugSession extends LoggingDebugSession {
 
 	protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
 		// 需要询问用户调用的方法名和参数
-		const inputMethodWithArgStr = await vscode.window.showInputBox({
-			placeHolder: "Please enter the method and argument to debug(seperate by space)",
-			value: ""
-		}) || ''
-		console.log('inputMethodWithArgStr', inputMethodWithArgStr)
-		const firstSpaceIdx = inputMethodWithArgStr.indexOf(' ')
-		if(firstSpaceIdx<0) {
-			vscode.window.showErrorMessage('please enter method and argument to debug')
-			this.sendEvent(new TerminatedEvent());
-			return
-		}
-		const methodToInvoke= inputMethodWithArgStr.substring(0, firstSpaceIdx)
-		const argumentToInvoke = inputMethodWithArgStr.substr(firstSpaceIdx+1)
-		console.log(`methodToInvoke: ${methodToInvoke}`)
-		console.log(`argumentToInvoke: ${argumentToInvoke}`)
-		// TODO: 调用simplechain rpc来开启调试
-		const contracts = await this.rpcClient.listContracts()
-		console.log(`contracts: ${contracts}`)
+		// const inputMethodWithArgStr = await vscode.window.showInputBox({
+		// 	placeHolder: "Please enter the method and argument to debug(seperate by space)",
+		// 	value: ""
+		// }) || ''
+		// console.log('inputMethodWithArgStr', inputMethodWithArgStr)
+		// const firstSpaceIdx = inputMethodWithArgStr.indexOf(' ')
+		// if(firstSpaceIdx<0) {
+		// 	vscode.window.showErrorMessage('please enter method and argument to debug')
+		// 	this.sendEvent(new TerminatedEvent());
+		// 	return
+		// }
+		// const methodToInvoke= inputMethodWithArgStr.substring(0, firstSpaceIdx)
+		// const argumentToInvoke = inputMethodWithArgStr.substr(firstSpaceIdx+1)
+		// console.log(`methodToInvoke: ${methodToInvoke}`)
+		// console.log(`argumentToInvoke: ${argumentToInvoke}`)
 
 		this.currentContractId = getCurrentContractId() || '';
 		this.currentContractAPi = getCurrenContractApi() || '';
+		if(!this.currentContractId || !this.currentContractAPi) {
+			vscode.window.showErrorMessage(`please select a contract and api to debugger in explorer`)
+			this.sendEvent(new TerminatedEvent(false))
+			return
+		}
 		console.log('current contractAddress, apiName set to ' + this.currentContractId + ', ' + this.currentContractAPi)
 
-		// TODO: add breakpoints and entrypoint breakpoint
+		// add breakpoints and entrypoint breakpoint
 		await this.rpcClient.clearBreakpoints()
-		for(let i =0;i<250;i++) {
-			await this.rpcClient.setBreakpoint(this.currentContractId, i) // 191 TODO: simplechain need to debugger stop at entrypoint
+		for(const bp of this.breakpoints) {
+			await this.rpcClient.setBreakpoint(this.currentContractId, bp.line)
 		}
 
 		// start debugger invoke
 		const invokeRes = await this.rpcClient.debuggerInvokeContract(this.currentContractId, this.currentContractAPi, ['hi'])
 		console.log(`debugger invoke contract response`, invokeRes)
-		// TODO: if run to end, not paused, send terminated event
-
-		// const firstSpanRes = await this.rpcClient.getNextRequest(this.currentTraceId, undefined, undefined, 'step_over', [])
-		// if(firstSpanRes) {
-		// 	console.log('firstSpanRes', firstSpanRes)
-		// 	this.currentSpanId = firstSpanRes.spanId
-		// 	this.currentSeqInSpan = firstSpanRes.seqInSpan
-		// }
+		if(!invokeRes.exec_succeed) {
+			vscode.window.showErrorMessage(`something error happen`)
+			this.sendEvent(new TerminatedEvent(false))
+			return
+		}
+		// 请求simplechain检查是否进入了断点，如果不是，结束调试
+		const debuggerStateContractId = await this.rpcClient.getCurrentDebugStateContractId()
+		if(debuggerStateContractId !== this.currentContractId) {
+			console.log(`debugger state contract id ${debuggerStateContractId} not current contract id, maybe debugger end`)
+			this.sendEvent(new TerminatedEvent(false))
+			return
+		}
 
 		// make sure to 'Stop' the buffered logging if 'trace' is not set
 		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
@@ -243,6 +251,9 @@ export class GluaDebugSession extends LoggingDebugSession {
 		response.body = {
 			breakpoints: actualBreakpoints
 		};
+		console.log('setBreakPointsRequest', actualBreakpoints)
+		// save breakpoints to this, [{verified, line, id}, ...]
+		this.breakpoints = actualBreakpoints
 		this.sendResponse(response);
 	}
 
@@ -374,7 +385,6 @@ export class GluaDebugSession extends LoggingDebugSession {
 			const seqInSpan = this.currentSeqInSpan
 			const res = await this.rpcClient.getStackVariables(spanId, seqInSpan)
 			console.log('view stack variables res', res)
-			// TODO
 			const variableValues = res
 			for(const key in variableValues) {
 				const value = variableValues[key]
