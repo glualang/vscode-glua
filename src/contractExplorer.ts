@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
+// import * as fs from 'fs';
+// import * as path from 'path';
 import {GluaRpcClient, getCurrentContractId, getCurrenContractApi} from './gluaRpcClient';
 
 const rpcClient = new GluaRpcClient();

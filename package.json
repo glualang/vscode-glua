@@ -22,10 +22,10 @@
 	"private": true,
 	"repository": {
 		"type": "git",
-		"url": ""
+		"url": "https://github.com/glualang/vscode-glua.git"
 	},
 	"bugs": {
-		"url": ""
+		"url": "https://github.com/glualang/vscode-glua/issues"
 	},
 	"scripts": {
 		"prepublish": "tsc -p ./src",

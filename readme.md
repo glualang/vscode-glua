@@ -14,12 +14,12 @@ this is vscode plugin for glua
 
 * debug contract source code
 
-![alt vscode-glua-debug-contract.gif](./images/vscode-glua-debug-contract.gif)
+![alt vscode-glua-debug-contract.gif](./public/vscode-glua-debug-contract.gif)
 
 
 * deploy contract and invoke contract api
 
-![alt vscode-glua-create-contract.gif](./images/vscode-glua-create-contract.gif)
+![alt vscode-glua-create-contract.gif](./public/vscode-glua-create-contract.gif)
 
 # VSCode-glua Extension Usage
 
