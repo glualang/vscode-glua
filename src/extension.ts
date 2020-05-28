@@ -9,8 +9,12 @@ import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken 
 import { GluaDebugSession } from './gluaDebug';
 // import { setCurrentTraceId } from './gluaRpcClient';
 import * as Net from 'net';
+import * as path from 'path'
+import * as fs from 'fs'
 import { GluaRpcClient, setCurrentContractId } from './gluaRpcClient';
 import { ContractsNodeProvider } from './contractExplorer';
+import * as child_process from 'child_process'
+// const child_process = require('child_process')
 
 /*
  * The compile time flag 'runMode' controls how the debug adapter is run.
@@ -27,25 +31,62 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.setEndpoint', (traceId: string = '') => {
-		// vscode.window.showInputBox({
-		// 	placeHolder: "Please enter the endpoint you want to debugger",
-		// 	value: ''
-		// }).then((traceId: string) => {
-		// 	console.log('receive traceId ' + traceId)
-		// 	if (!traceId) {
-		// 		console.log('empty trace id')
-		// 		// TODO: show alert to notify
-		// 		return
-		// 	}
-		// 	setCurrentTraceId(traceId)
-		// 	// TODO: set current traceId
-		// })
+	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.setEndpoint', () => {
+
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.compileContract', () => {
+		const gluacProgram = `E:/projects/glua/gluac.exe` // TODO
+		const activeEditor = vscode.window.activeTextEditor
+		if(!activeEditor) {
+			vscode.window.showErrorMessage(`please open the source file to compile`)
+			return
+		}
+		const currentlyOpenTabfilePath = activeEditor.document.fileName || '';
+		const sourceFile = currentlyOpenTabfilePath
+		const sourceFileBaseName = path.basename(sourceFile);
+		const metaProcess = child_process.spawn(gluacProgram, ['-target=meta', '-vm=glua', sourceFile])
+		metaProcess.on('close', (code) => {
+			console.log(`gluac generate meta file exited with code ${code}`);
+			if (code !== 0) {
+				vscode.window.showErrorMessage(`compile ${sourceFileBaseName} error`)
+				return
+			}
+			const metaFilePath = sourceFile + '.gen.meta.json'
+			// 根据源码和meta file编译并产生gpc文件
+			const gpcProcess = child_process.spawn(gluacProgram, ['-target=binary', '-vm=glua', '-package', `-meta=${metaFilePath}`, sourceFile])
+			gpcProcess.on('close', (code) => {
+				console.log(`gluac generate gpc file exited with code ${code}`);
+				if (code !== 0) {
+					vscode.window.showErrorMessage(`compile ${sourceFileBaseName} error`)
+					return
+				}
+				const gpcFilePath = sourceFile + '.gpc'
+				const gpcFileBaseName = path.basename(gpcFilePath)
+				vscode.window.showInformationMessage(`contract ${gpcFileBaseName} generated`)
+			})
+		})
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.deployContract', () => {
-		// TODO: get current selected document as contract file and call deploy
-		const contractFile = `E:/projects/vscode-glua/mock_test/contract.glua.gpc`
+		const activeEditor = vscode.window.activeTextEditor
+		if(!activeEditor) {
+			vscode.window.showErrorMessage(`please open the source file to compile`)
+			return
+		}
+		const currentlyOpenTabfilePath = activeEditor.document.fileName || '';
+		let sourceFile = currentlyOpenTabfilePath
+		if(path.extname(sourceFile) !== '.gpc') {
+			const gpcFile = sourceFile + '.gpc'
+			if(fs.existsSync(gpcFile)) {
+				sourceFile = gpcFile;
+			} else {
+				vscode.window.showErrorMessage(`please compile the source contract file first`)
+				return
+			}
+		}
+		const sourceFileBaseName = path.basename(sourceFile);
+		const contractFile = sourceFile
 		const rpcClient = new GluaRpcClient()
 		rpcClient.deployContract(contractFile)
 			.then(res => {
@@ -59,7 +100,7 @@ export function activate(context: vscode.ExtensionContext) {
 				contractsNodeProvider.refresh()
 			})
 			.catch(e => {
-				console.log('deploy contract error', e)
+				console.log(`deploy contract ${sourceFileBaseName} error`, e)
 			})
 	}))
 

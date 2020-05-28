@@ -3,6 +3,11 @@
 
 -- type State = 'NOT_INITED' | 'COMMON' | 'PAUSED' | 'STOPPED'
 
+-- add this Contract type when only compile by gluac
+type Contract<T> = {
+    storage: T
+}
+
 type Storage = {
     name: string,
     symbol: string,

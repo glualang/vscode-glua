@@ -59,6 +59,7 @@
 		"onCommand:extension.glua-debug.getProgramName",
 		"onCommand:gluaDebug.setEndpoint",
 		"onCommand:gluaDebug.deployContract",
+		"onCommand:gluaDebug.compileContract",
 		"onView:contractNodes"
 	],
 	"contributes": {
@@ -83,6 +84,10 @@
 			}
 		],
 		"commands": [
+			{
+				"command": "gluaDebug.compileContract",
+				"title": "compile contract"
+			},
 			{
 				"command": "gluaDebug.deployContract",
 				"title": "deploy contract"
