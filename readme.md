@@ -19,3 +19,14 @@ this is vscode plugin for glua
 * enter `deploy contract` command to deploy the contract
 * in contracts explorer view, select the contract and api you want to run and debug
 * center `F5` in your opened contract source file to start the debugger
+* view contract apis and storages and local variables/upvalues when debuging
+
+# commands
+
+* compile contract
+* deploy contract
+* invoke contract
+* deposit contract
+* generate block
+* `F5` to start debugger
+* `Ctrl-F5` to run without debugger

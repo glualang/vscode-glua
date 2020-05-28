@@ -1,7 +1,5 @@
 const rp = require('request-promise');
 
-// TODO: use simplechain debugger
-
 const endpoint = `http://localhost:8080/api`
 
 export class GluaRpcClient {
@@ -28,7 +26,6 @@ export class GluaRpcClient {
 	async generateBlock() {
 		await this.callRpc('generate_block', [1])
 	}
-	// TODO: compile contract
 	async deployContract(contractPath: string) {
 		const callerAddr = 'test'
 		const gasLimit = 10000;
@@ -62,12 +59,21 @@ export class GluaRpcClient {
 	async setBreakpoint(contractAddr: string, line: number) {
 		await this.callRpc('set_breakpoint', [contractAddr, line])
 	}
-	async debuggerInvokeContract(contractAddr: string, apiName: string, apiArgs: any) {
-		const callerAddr = 'test'
+	async invokeContract(contractAddr: string, apiName: string, apiArgs: any, callerAddr: string='test', gasLimit: number=10000, gasPrice: number=1) {
 		const depositAssetId = 0
 		const depositAmount = 0
-		const gasLimit = 10000
-		const gasPrice = 1
+		const res = await this.callRpc('invoke_contract', [callerAddr, contractAddr, apiName, apiArgs, depositAssetId, depositAmount, gasLimit, gasPrice])
+		return res
+	}
+	async invokeContractOffline(contractAddr: string, apiName: string, apiArgs: any, callerAddr: string='test') {
+		const depositAssetId = 0
+		const depositAmount = 0
+		const res = await this.callRpc('invoke_contract_offline', [callerAddr, contractAddr, apiName, apiArgs, depositAssetId, depositAmount])
+		return res
+	}
+	async debuggerInvokeContract(contractAddr: string, apiName: string, apiArgs: any, callerAddr: string='test', gasLimit: number=10000, gasPrice: number=1) {
+		const depositAssetId = 0
+		const depositAmount = 0
 		const res = await this.callRpc('debugger_invoke_contract',
 			[callerAddr, contractAddr, apiName, apiArgs, depositAssetId, depositAmount, gasLimit, gasPrice])
 		return res
@@ -121,29 +127,8 @@ export class GluaRpcClient {
 		const res = await this.callRpc('view_current_contract_storage_value', [storageName, '', false])
 		return res[storageName]
 	}
-	async listTraces() {
-		// TODO
-		const url = `${endpoint}/api/trace/list`
-		const reqData = {
-			page: 1,
-			pageSize: 20
-		}
-		const res = await rp({
-			method: 'POST',
-			url: url,
-			body: reqData,
-			json: true
-		})
-		return res
-	}
-	async listSpansOfTrace(traceId: string) {
-		// TODO
-		const url = `${endpoint}/api/trace/list_spans/${traceId}`
-		const res = await rp({
-			method: 'GET',
-			url: url,
-			json: true
-		})
+	async getStackStorageValuesBatch(storageNames: Array<string>) {
+		const res = await this.callRpc('view_current_contract_storage_value_batch', [storageNames.map(name => [name, '', false])])
 		return res
 	}
 	async getNextRequest(traceId: string | undefined, spanId: string | undefined, seqInSpan: Number | undefined, stepType: string, breakpoints) {

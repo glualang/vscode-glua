@@ -11,7 +11,7 @@ import { GluaDebugSession } from './gluaDebug';
 import * as Net from 'net';
 import * as path from 'path'
 import * as fs from 'fs'
-import { GluaRpcClient, setCurrentContractId } from './gluaRpcClient';
+import { GluaRpcClient, setCurrentContractId, getCurrentContractId, getCurrenContractApi } from './gluaRpcClient';
 import { ContractsNodeProvider } from './contractExplorer';
 import * as child_process from 'child_process'
 // const child_process = require('child_process')
@@ -24,6 +24,8 @@ const runMode: 'external' | 'server' | 'inline' = 'inline';
 
 export function activate(context: vscode.ExtensionContext) {
 
+	const rpcClient = new GluaRpcClient();
+
 	context.subscriptions.push(vscode.commands.registerCommand('extension.trace-debug.getProgramName', config => {
 		return vscode.window.showInputBox({
 			placeHolder: "Please enter the name of a markdown file in the workspace folder",
@@ -32,7 +34,43 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.setEndpoint', () => {
+		// TODO: 设置simplechain的RPC endpoint
+	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.invokeContract', async () => {
+		// 发出调用合约的命令
+		const currentContractId = getCurrentContractId() || '';
+		const currentContractAPi = getCurrenContractApi() || '';
+		if (!currentContractId || !currentContractAPi) {
+			vscode.window.showErrorMessage(`please select a contract and api to debugger in explorer`)
+			return
+		}
+		console.log(`current contractAddress, apiName set to ${currentContractId}, ${currentContractAPi}`)
+
+
+		// 让用户输入合约调用参数
+		const apiArg = await vscode.window.showInputBox({
+			placeHolder: "Please enter the invoke argument",
+			value: ''
+		})
+		const invokeRes = await rpcClient.invokeContract(currentContractId, currentContractAPi, [apiArg])
+		console.log(`debugger invoke contract response`, invokeRes)
+		if (!invokeRes.exec_succeed) {
+			vscode.window.showErrorMessage(`run error ${invokeRes.api_result}`)
+			return
+		}
+		vscode.window.showInformationMessage(`result: ${invokeRes.api_result}`)
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.depositContract', () => {
+		// TODO: 发出充值到选中的合约的命令
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.generateBlock', async () => {
+		// 发出让链产块的命令
+		const res = await rpcClient.generateBlock()
+		console.log(`generate block response`, res)
+		vscode.window.showInformationMessage(`1 block generated`)
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.compileContract', () => {
@@ -49,6 +87,10 @@ export function activate(context: vscode.ExtensionContext) {
 		const sourceFile = currentlyOpenTabfilePath
 		const sourceFileBaseName = path.basename(sourceFile);
 		const metaProcess = child_process.spawn(gluacProgram, ['-target=meta', '-vm=glua', sourceFile])
+		// log process output
+		metaProcess.on('data', (chunk) => {
+			console.log('meta code info compile output', chunk)
+		})
 		metaProcess.on('close', (code) => {
 			console.log(`gluac generate meta file exited with code ${code}`);
 			if (code !== 0) {
@@ -90,7 +132,6 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 		const sourceFileBaseName = path.basename(sourceFile);
 		const contractFile = sourceFile
-		const rpcClient = new GluaRpcClient()
 		rpcClient.deployContract(contractFile)
 			.then(res => {
 				console.log('deploy contract res', res)
@@ -105,7 +146,7 @@ export function activate(context: vscode.ExtensionContext) {
 			.catch(e => {
 				console.log(`deploy contract ${sourceFileBaseName} error`, e)
 			})
-	}))
+	}));
 
 	// register a configuration provider for 'gluadebug' debug type
 	const provider = new MockConfigurationProvider();

@@ -16,6 +16,7 @@ end
 function M:setName(data: string)
     self.storage.name = data
     emit setName(data)
+    print('storage.name=', self.storage.name)
 end
 
 offline function M:query(_: string)

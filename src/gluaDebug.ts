@@ -61,7 +61,7 @@ export class GluaDebugSession extends LoggingDebugSession {
 	private currentContractId?: string = undefined
 	private currentContractAPi?: string = undefined
 	private currentSeqInSpan?: Number = 0
-	private breakpoints: Array<any> = []
+	private breakpoints: {} = {} // path => Array<Breakpoint>
 
 
 	/**
@@ -171,23 +171,6 @@ export class GluaDebugSession extends LoggingDebugSession {
 	}
 
 	protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
-		// 需要询问用户调用的方法名和参数
-		// const inputMethodWithArgStr = await vscode.window.showInputBox({
-		// 	placeHolder: "Please enter the method and argument to debug(seperate by space)",
-		// 	value: ""
-		// }) || ''
-		// console.log('inputMethodWithArgStr', inputMethodWithArgStr)
-		// const firstSpaceIdx = inputMethodWithArgStr.indexOf(' ')
-		// if(firstSpaceIdx<0) {
-		// 	vscode.window.showErrorMessage('please enter method and argument to debug')
-		// 	this.sendEvent(new TerminatedEvent());
-		// 	return
-		// }
-		// const methodToInvoke= inputMethodWithArgStr.substring(0, firstSpaceIdx)
-		// const argumentToInvoke = inputMethodWithArgStr.substr(firstSpaceIdx+1)
-		// console.log(`methodToInvoke: ${methodToInvoke}`)
-		// console.log(`argumentToInvoke: ${argumentToInvoke}`)
-
 		const programPath = args.program
 		if (!programPath) {
 			vscode.window.showErrorMessage(`please open the source file to debugger`)
@@ -203,19 +186,35 @@ export class GluaDebugSession extends LoggingDebugSession {
 			this.sendEvent(new TerminatedEvent(false))
 			return
 		}
-		console.log('current contractAddress, apiName set to ' + this.currentContractId + ', ' + this.currentContractAPi)
-
-		// add breakpoints and entrypoint breakpoint
-		await this.rpcClient.clearBreakpoints()
-		for (const bp of this.breakpoints) {
-			await this.rpcClient.setBreakpoint(this.currentContractId, bp.line)
-		}
+		console.log(`current contractAddress, apiName set to ${this.currentContractId}, ${this.currentContractAPi}`)
 
 		// 让用户输入合约调用参数
 		const apiArg = await vscode.window.showInputBox({
 			placeHolder: "Please enter the invoke argument",
 			value: ''
 		})
+
+		if(args.noDebug) {
+			// 不开调试直接运行，直接调用invoke_contract的rpc
+			const invokeRes = await this.rpcClient.invokeContractOffline(this.currentContractId, this.currentContractAPi, [apiArg])
+			console.log(`debugger invoke contract response`, invokeRes)
+			if (!invokeRes.exec_succeed) {
+				vscode.window.showErrorMessage(`run error ${invokeRes.api_result}`)
+				this.sendEvent(new TerminatedEvent(false))
+				return
+			}
+			vscode.window.showInformationMessage(`result: ${invokeRes.api_result}`)
+			this.sendEvent(new TerminatedEvent(false))
+			return
+		}
+
+		// add breakpoints and entrypoint breakpoint
+		await this.rpcClient.clearBreakpoints()
+		if(this.breakpoints[programPath]) {
+			for (const bp of this.breakpoints[programPath]) {
+				await this.rpcClient.setBreakpoint(this.currentContractId, bp.line)
+			}
+		}
 
 		// start debugger invoke
 		const invokeRes = await this.rpcClient.debuggerInvokeContract(this.currentContractId, this.currentContractAPi, [apiArg])
@@ -268,7 +267,7 @@ export class GluaDebugSession extends LoggingDebugSession {
 		};
 		console.log('setBreakPointsRequest', actualBreakpoints)
 		// save breakpoints to this, [{verified, line, id}, ...]
-		this.breakpoints = actualBreakpoints
+		this.breakpoints[path] = actualBreakpoints
 		this.sendResponse(response);
 	}
 
@@ -430,9 +429,10 @@ export class GluaDebugSession extends LoggingDebugSession {
 					try {
 						const contractInfo = await this.rpcClient.getContractInfoWithCache(this.currentContractId || '')
 						const storageProps = contractInfo.storage_properties
+						const values = await this.rpcClient.getStackStorageValuesBatch(storageProps.map(p=>p[0]))
 						for (const item of storageProps) {
 							const storageName = <string>item[0]
-							const value = await this.rpcClient.getStackStorageValue(storageName)
+							const value = values[storageName]
 							console.log(`storage ${storageName} value`, value)
 							variables.push({
 								name: storageName,

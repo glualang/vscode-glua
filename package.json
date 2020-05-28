@@ -60,6 +60,9 @@
 		"onCommand:gluaDebug.setEndpoint",
 		"onCommand:gluaDebug.deployContract",
 		"onCommand:gluaDebug.compileContract",
+		"onCommand:gluaDebug.invokeContract",
+		"onCommand:gluaDebug.depositContract",
+		"onCommand:gluaDebug.generateBlock",
 		"onView:contractNodes"
 	],
 	"contributes": {
@@ -91,6 +94,18 @@
 			{
 				"command": "gluaDebug.deployContract",
 				"title": "deploy contract"
+			},
+			{
+				"command": "gluaDebug.invokeContract",
+				"title": "invoke contract"
+			},
+			{
+				"command": "gluaDebug.depositContract",
+				"title": "deposit to contract"
+			},
+			{
+				"command": "gluaDebug.generateBlock",
+				"title": "generate block"
 			},
 			{
 				"command": "gluaDebug.setEndpoint",
