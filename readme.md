@@ -10,6 +10,17 @@ this is vscode plugin for glua
 * deploy contract to simplechain
 * invoke contract and debug
 
+# Screenshot
+
+* debug contract source code
+
+![alt vscode-glua-debug-contract.gif](./images/vscode-glua-debug-contract.gif)
+
+
+* deploy contract and invoke contract api
+
+![alt vscode-glua-create-contract.gif](./images/vscode-glua-create-contract.gif)
+
 # VSCode-glua Extension Usage
 
 * put `gluac.exe` or `gluac`(when not Windows) to system env PATH
