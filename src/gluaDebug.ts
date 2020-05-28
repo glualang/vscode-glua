@@ -492,7 +492,7 @@ export class GluaDebugSession extends LoggingDebugSession {
 
 	protected async continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments) {
 		this._runtime.continue();
-		await this.sendNextRequest(response, args, 'continue')
+		await this.sendNextRequest(response, args, 'go_resume')
 	}
 
 	protected reverseContinueRequest(response: DebugProtocol.ReverseContinueResponse, args: DebugProtocol.ReverseContinueArguments): void {
@@ -550,7 +550,7 @@ export class GluaDebugSession extends LoggingDebugSession {
 		console.log('stepInRequest')
 		// this._runtime.stepIn(args.targetId);
 		this._runtime.sendEvent('stopOnStep')
-		await this.sendNextRequest(response, args, 'step_in')
+		await this.sendNextRequest(response, args, 'step_into')
 	}
 
 	protected async stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments) {

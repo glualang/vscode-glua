@@ -36,7 +36,10 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.compileContract', () => {
-		const gluacProgram = `E:/projects/glua/gluac.exe` // TODO
+		let gluacProgram = 'gluac'
+		if(process.platform==='win32') {
+			gluacProgram = 'gluac.exe'
+		}
 		const activeEditor = vscode.window.activeTextEditor
 		if(!activeEditor) {
 			vscode.window.showErrorMessage(`please open the source file to compile`)

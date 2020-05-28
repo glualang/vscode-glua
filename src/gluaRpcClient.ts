@@ -147,10 +147,7 @@ export class GluaRpcClient {
 		return res
 	}
 	async getNextRequest(traceId: string | undefined, spanId: string | undefined, seqInSpan: Number | undefined, stepType: string, breakpoints) {
-		let rpcMethod = `debugger_${stepType}`
-		if(stepType==='continue') {
-			rpcMethod = 'debugger_go_resume'
-		}
+		const rpcMethod = `debugger_${stepType}`
 		const res = await this.callRpc(rpcMethod, [])
 		return res
 	}
