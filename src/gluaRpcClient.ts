@@ -1,6 +1,7 @@
 const rp = require('request-promise');
 
-const endpoint = `http://localhost:8080/api`
+const defaultEndpoint = `http://localhost:8080/api`
+let endpoint = defaultEndpoint
 
 export class GluaRpcClient {
 	async callRpc(method: string, params: Array<any>) {
@@ -65,6 +66,11 @@ export class GluaRpcClient {
 		const res = await this.callRpc('invoke_contract', [callerAddr, contractAddr, apiName, apiArgs, depositAssetId, depositAmount, gasLimit, gasPrice])
 		return res
 	}
+	async depositToContract(contractAddr: string, apiArgs: any, depositAssetId: number, depositAmount: number, callerAddr: string='test', gasLimit: number=10000, gasPrice: number=1) {
+		const apiName = 'on_deposit_asset'
+		const res = await this.callRpc('invoke_contract', [callerAddr, contractAddr, apiName, apiArgs, depositAssetId, depositAmount, gasLimit, gasPrice])
+		return res
+	}
 	async invokeContractOffline(contractAddr: string, apiName: string, apiArgs: any, callerAddr: string='test') {
 		const depositAssetId = 0
 		const depositAmount = 0
@@ -92,7 +98,6 @@ export class GluaRpcClient {
 	async getSpanStackTrace(spanId: string, seqInSpan: Number) {
 		let res = await this.callRpc('view_call_stack', [])
 		console.log('view_call_stack raw response', res)
-		// TODO: now simplechain call stack have some problems
 		const stacktrace: Array<any> = []
 		for(const item of res) {
 			const splited = item.split(',')
@@ -165,4 +170,12 @@ export function setCurrentProgramPath(path: string) {
 
 export function getCurrentProgramPath() {
 	return currentProgramPath
+}
+
+export function setRpcEndpoint(newEndpoint: string) {
+	endpoint = newEndpoint
+}
+
+export function getDefaultRpcEndpoint(): string {
+	return defaultEndpoint
 }

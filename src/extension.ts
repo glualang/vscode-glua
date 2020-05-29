@@ -11,9 +11,10 @@ import { GluaDebugSession } from './gluaDebug';
 import * as Net from 'net';
 import * as path from 'path'
 import * as fs from 'fs'
-import { GluaRpcClient, setCurrentContractId, getCurrentContractId, getCurrenContractApi } from './gluaRpcClient';
+import { GluaRpcClient, setCurrentContractId, getCurrentContractId, getCurrenContractApi, getDefaultRpcEndpoint, setRpcEndpoint } from './gluaRpcClient';
 import { ContractsNodeProvider } from './contractExplorer';
 import * as child_process from 'child_process'
+import { URL } from 'url';
 // const child_process = require('child_process')
 
 /*
@@ -33,8 +34,24 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.setEndpoint', () => {
-		// TODO: 设置simplechain的RPC endpoint
+	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.setEndpoint', async () => {
+		// 设置simplechain的RPC endpoint
+		const endpoint = await vscode.window.showInputBox({
+			placeHolder: `Please enter the rpc endpoint of simplechan(default ${getDefaultRpcEndpoint()})`,
+			value: ''
+		})
+		if(!endpoint) {
+			return
+		}
+		let url: URL
+		try {
+			url = new URL(endpoint)
+		} catch(e) {
+			vscode.window.showErrorMessage(`invalid endpoint url`)
+			return
+		}
+		setRpcEndpoint(url.toString())
+		vscode.window.showInformationMessage(`updated glua debug endpoint`)
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.invokeContract', async () => {
@@ -62,8 +79,62 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage(`result: ${invokeRes.api_result}`)
 	}));
 
-	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.depositContract', () => {
-		// TODO: 发出充值到选中的合约的命令
+	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.depositContract', async () => {
+		// 发出充值到选中的合约的命令
+		const depositAssetIdStr = await vscode.window.showInputBox({
+			placeHolder: `please enter deposit asset id(uint64) default 0`,
+			value: ''
+		}) || '0'
+		const checkAssetId = (assetIdStr: string): number | undefined => {
+			if(assetIdStr.length < 1) {
+				return undefined
+			}
+			try {
+				const n = parseInt(assetIdStr)
+				if(n === undefined || n < 0) {
+					return undefined
+				}
+				return n
+			} catch(e) {
+				return undefined
+			}
+		}
+		const assetId = checkAssetId(depositAssetIdStr)
+		if(assetId === undefined) {
+			vscode.window.showErrorMessage(`invalid deposit asset id format`)
+			return
+		}
+		const depositAmountStr = await vscode.window.showInputBox({
+			placeHolder: `please enter deposit amount`,
+			value: ''
+		}) || ''
+		const checkAmount = (amountStr: string): number | undefined => {
+			if(amountStr.length < 1) {
+				return undefined
+			}
+			try {
+				const n = parseInt(amountStr)
+				if(n === undefined || n <= 0) {
+					return undefined
+				}
+				return n
+			} catch(e) {
+				return undefined
+			}
+		}
+		const amount = checkAmount(depositAmountStr)
+		if(amount === undefined) {
+			vscode.window.showErrorMessage(`invalid deposit amount format`)
+			return
+		}
+		const currentContractId = getCurrentContractId() || '';
+		if (!currentContractId) {
+			vscode.window.showErrorMessage(`please select a contract to deposit in contract explorer`)
+			return
+		}
+		const res = await rpcClient.depositToContract(currentContractId, [], assetId, amount)
+		console.log(`deposit to contract response`, res)
+		vscode.window.showInformationMessage(`send a deposit to contract transaction(need generate block to work)`)
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.generateBlock', async () => {
@@ -212,14 +283,14 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	*/
 
-	// TODO: 左侧activityView需要可以查看当前注册在simplechain中的合约列表以及合约的各API和storages等
+	// 左侧需要可以查看当前注册在simplechain中的合约列表以及合约的各API和storages等
 	const contractsNodeProvider = new ContractsNodeProvider();
 	vscode.window.registerTreeDataProvider('contractNodes', contractsNodeProvider);
 	vscode.window.registerTreeDataProvider('contractNodesInDebugView', contractsNodeProvider);
 	vscode.commands.registerCommand('extension.setContractIdAndApiToDebug', (contractId: string, apiName: string) => {
 		setCurrentContractId(contractId, apiName)
 		vscode.window.showInformationMessage(`selected contractId and ${apiName} to debugger`);
-		// TODO: 更新tree view的显示(selected)
+		// 更新tree view的显示(selected)
 		contractsNodeProvider.refresh()
 	})
 
@@ -242,8 +313,7 @@ class MockConfigurationProvider implements vscode.DebugConfigurationProvider {
 			const editor = vscode.window.activeTextEditor;
 			const editorLang = editor && editor.document.languageId
 			const filename = editor && editor.document.fileName
-			// TODO: support all source files
-			if (editor && (editorLang === 'glua' || editorLang === 'markdown' || editorLang === 'lua' || (filename && filename.endsWith('.glua')))) {
+			if (editor && (editorLang === 'glua' || editorLang === 'lua' || (filename && filename.endsWith('.glua')))) {
 				config.type = 'gluadebug';
 				config.name = 'Launch';
 				config.request = 'launch';
