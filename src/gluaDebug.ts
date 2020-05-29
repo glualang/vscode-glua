@@ -413,18 +413,18 @@ export class GluaDebugSession extends LoggingDebugSession {
 						})
 					}
 				} else if (id === 'upvalue') {
-					// const res = await this.rpcClient.getStackUpvalues()
-					// console.log('view stack upvalues res', res)
-					// const variableValues = res
-					// for(const key in variableValues) {
-					// 	const value = variableValues[key]
-					// 	variables.push({
-					// 		name: key,
-					// 		type: 'string',
-					// 		value: value,
-					// 		variablesReference: 0
-					// 	})
-					// }
+					const res = await this.rpcClient.getStackUpvalues()
+					console.log('view stack upvalues res', res)
+					const variableValues = res
+					for(const key in variableValues) {
+						const value = variableValues[key]
+						variables.push({
+							name: key,
+							type: 'string',
+							value: value,
+							variablesReference: 0
+						})
+					}
 				} else if (id === 'storage') {
 					try {
 						const contractInfo = await this.rpcClient.getContractInfoWithCache(this.currentContractId || '')
