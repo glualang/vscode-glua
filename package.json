@@ -78,6 +78,13 @@
 				]
 			}
 		],
+		"grammars": [
+			{
+				"language": "glua",
+				"scopeName": "source.glua",
+				"path": "./syntaxes/glua.tmLanguage.json"
+			}
+		],
 		"breakpoints": [
 			{
 				"extension": ".glua"
