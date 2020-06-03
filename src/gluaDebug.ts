@@ -504,23 +504,20 @@ export class GluaDebugSession extends LoggingDebugSession {
 		this.sendResponse(response);
 
 		if (!this.currentContractAPi) {
-			console.log('trace ended')
+			console.log('trace ended because of no currentContractAPi')
 			this.sendEvent(new TerminatedEvent())
 			return
 		}
 		const breakpoints = []
 		const res = await this.rpcClient.getNextRequest(this.currentContractId, this.currentContractAPi, this.currentSeqInSpan, stepType, breakpoints)
-		console.log('next step span response', res)
-		// if(!res || !res.spanId) {
-		// 	this.currentContractAPi = undefined
-		// 	this.currentSeqInSpan = undefined
-		// 	console.log('end trace')
-		// 	this.sendEvent(new TerminatedEvent())
-		// 	return
-		// }
-		this.currentContractAPi = res.spanId
-		this.currentSeqInSpan = res.seqInSpan
+		console.log(`next ${stepType} step span response`, res)
 		console.log('current spanId ' + this.currentContractAPi + " seqInSpan " + this.currentSeqInSpan)
+		const state = await this.rpcClient.getCurrentDebugStateContractId()
+		if(!state) {
+			console.log('trace end')
+			this.sendEvent(new TerminatedEvent())
+			return
+		}
 	}
 
 	protected async nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments) {

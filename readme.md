@@ -6,6 +6,7 @@ this is vscode plugin for glua
 # Features
 
 * debugger by simplechain and gluac
+* glua syntax highlight
 * show simplechain contracts
 * deploy contract to simplechain
 * invoke contract and debug
