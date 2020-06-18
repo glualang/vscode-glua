@@ -12,7 +12,8 @@ import * as Net from 'net';
 import * as path from 'path'
 import * as fs from 'fs'
 import { GluaRpcClient, setCurrentContractId, getCurrentContractId, getCurrenContractApi, getDefaultRpcEndpoint, setRpcEndpoint } from './gluaRpcClient';
-import { ContractsNodeProvider } from './contractExplorer';
+import { ContractsNodeProvider } from './contractExplorer'
+import { ContractInfoPanel } from './contractInfoPanel'
 import * as child_process from 'child_process'
 import { URL } from 'url';
 // const child_process = require('child_process')
@@ -33,6 +34,24 @@ export function activate(context: vscode.ExtensionContext) {
 			value: "readme.md"
 		});
 	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('extension.openContractPage', (contractAddress) => {
+		console.log('extension.openContractPage called contract ', contractAddress)
+		// 打开一个web view页面展示合约的信息，storage信息，API列表，events列表，合约交易历史等
+		ContractInfoPanel.createOrShow(context.extensionPath, contractAddress)
+	}))
+
+	if (vscode.window.registerWebviewPanelSerializer) {
+		// Make sure we register a serializer in activation event
+
+		vscode.window.registerWebviewPanelSerializer(ContractInfoPanel.viewType, {
+			async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
+				console.log(`Got state: ${state}`);
+				const contractAddress = state || ''
+				ContractInfoPanel.revive(webviewPanel, context.extensionPath, contractAddress);
+			}
+		});
+	}
 
 	context.subscriptions.push(vscode.commands.registerCommand('gluaDebug.setEndpoint', async () => {
 		// 设置simplechain的RPC endpoint

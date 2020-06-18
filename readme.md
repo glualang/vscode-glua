@@ -22,6 +22,10 @@ this is vscode plugin for glua
 
 ![alt vscode-glua-create-contract.gif](./public/vscode-glua-create-contract.gif)
 
+* view contract info and storages
+
+![alt vscode-glua-contract-view.gif](./public/vscode-glua-contract-view.gif)
+
 # VSCode-glua Extension Usage
 
 * put `gluac.exe` or `gluac`(when not Windows) to system env PATH

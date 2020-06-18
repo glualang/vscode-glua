@@ -176,6 +176,10 @@ export function setRpcEndpoint(newEndpoint: string) {
 	endpoint = newEndpoint
 }
 
+export function getRpcEndpoint() {
+	return endpoint
+}
+
 export function getDefaultRpcEndpoint(): string {
 	return defaultEndpoint
 }

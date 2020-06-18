@@ -63,7 +63,8 @@
 		"onCommand:gluaDebug.invokeContract",
 		"onCommand:gluaDebug.depositContract",
 		"onCommand:gluaDebug.generateBlock",
-		"onView:contractNodes"
+		"onView:contractNodes",
+		"onWebviewPanel:contractInfo"
 	],
 	"contributes": {
 		"languages": [

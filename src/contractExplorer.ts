@@ -15,7 +15,7 @@ export class ContractsNodeProvider implements vscode.TreeDataProvider<vscode.Tre
 
 	refresh(): void {
 		console.log('ContractsNodeProvider refresh')
-		this._onDidChangeTreeData.fire();
+		this._onDidChangeTreeData.fire(undefined);
 	}
 
 	getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
@@ -64,7 +64,13 @@ export class ContractsNodeProvider implements vscode.TreeDataProvider<vscode.Tre
 		const res = await rpcClient.listContracts()
 		console.log('contract list', res)
 		const toNode = (item: any): ContractNode => {
-			return new ContractNode(item, item, vscode.TreeItemCollapsibleState.Collapsed)
+			return new ContractNode(item, item,
+				vscode.TreeItemCollapsibleState.Collapsed,
+				{
+					command: 'extension.openContractPage',
+					title: '',
+					arguments: [item]
+				})
 		}
 		const traceNodes = res.map(toNode)
 		return traceNodes
